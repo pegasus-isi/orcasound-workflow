@@ -79,6 +79,10 @@ class OrcasoundWorkflow():
                 )
 
         exec_site = (Site(exec_site_name)
+                        .add_directories(
+                            Directory(Directory.SHARED_SCRATCH, shared_scratch_dir)
+                                .add_file_servers(FileServer("file://" + shared_scratch_dir, Operation.ALL))
+                        )
                         .add_condor_profile(universe="vanilla")
                         .add_pegasus_profile(
                             style="condor",
@@ -100,7 +104,7 @@ class OrcasoundWorkflow():
         )
 
         # Add the orcasound processing
-        orcasound_processing = Transformation("orcasound_processing", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/orcasound_processing.py"), is_stageable=True)
+        orcasound_processing = Transformation("orcasound_processing", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/orcasound_processing.py"), is_stageable=True, container=orcasound_container)
         
         self.tc.add_containers(orcasound_container)
         self.tc.add_transformations(orcasound_processing)
@@ -163,10 +167,15 @@ class OrcasoundWorkflow():
         # Add s3 files as deep lfns
         for f in self.s3_files["Key"]:
             self.rc.add_replica("AmazonS3", f, "s3://george@amazon/{}/{}".format(self.s3_bucket, f))
+        
+        # Add create_spectrogram.py
+        self.rc.add_replica("create_spectrogram.py", "create_spectrogram.py", os.path.join(self.wf_dir, "bin/create_spectrogram.py"))
     
     # --- Create Workflow ----------------------------------------------------------
     def create_workflow(self):
         self.wf = Workflow(self.wf_name, infer_dependencies=True)
+        
+        spectrogram_py = File("create_spectrogram.py")
 
         # Create a job for each Sensor and Timestamp
         for sensor in self.sensors:
@@ -178,11 +187,11 @@ class OrcasoundWorkflow():
                     if f.endswith(".m3u8"):
                         continue
                     else:
-                        output_files.append("png/{0}/{1}".format(sensor, f.replace(".ts", ".png")))
+                        output_files.append("png/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".png")))
                 
                 processing_job = (Job("orcasound_processing")
                                     .add_args("{0}/hls/{1} -o png/{0}/{1}".format(sensor, ts))
-                                    .add_inputs(*input_files, bypass_staging=True)
+                                    .add_inputs(spectrogram_py, *input_files, bypass_staging=True)
                                     .add_outputs(*output_files, stage_out=True, register_replica=True)
                                  )
                                 
@@ -196,7 +205,6 @@ if __name__ == '__main__':
     parser.add_argument("-s", "--skip_sites_catalog", action="store_true", help="Skip site catalog creation")
     parser.add_argument("-e", "--execution_site_name", metavar="STR", type=str, default="condorpool", help="Execution site name (default: condorpool)")
     parser.add_argument("-o", "--output", metavar="STR", type=str, default="workflow.yml", help="Output file (default: workflow.yml)")
-    parser.add_argument("-w", "--workers", metavar="STR", type=str, default=10, help="Number of workers (default: 10)")
     parser.add_argument("--sensors", metavar="STR", type=str, choices=["rpi_bush_point", "rpi_port_townsend", "rpi_orcasound_lab"], required=True, nargs="+", help="Sensor source [rpi_bush_point, rpi_port_townsend, rpi_orcasound_lab]")
     parser.add_argument("--start_date", metavar="STR", type=lambda s: datetime.strptime(s, '%Y-%m-%d'), required=True, help="Start date (example: '2021-08-10')")
     parser.add_argument("--end_date", metavar="STR", type=lambda s: datetime.strptime(s, '%Y-%m-%d'), default=None, help="End date (default: Start date + 1 day)")
