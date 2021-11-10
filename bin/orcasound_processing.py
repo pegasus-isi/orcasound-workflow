@@ -26,18 +26,6 @@ def convert_with_ffmpeg(input_file, output_file):
         raise e
 
 
-def create_readable_name(directory, timestamp):
-    """
-    Creates human readable `.wav` file name from `output_dir` and Unix timestamp.
-
-    Resulting name will look like `directory/%Y-%m-%dT%H-%M-%S.wav`
-    """
-    return path.join(
-        directory,
-        f"{datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%dT%H-%M-%S-%f')[:-3]}.wav",
-    )
-
-
 def convert2wav(input_dir, output_dir):
     """
     Converts all `.ts` files from `live.m3u8` to `.wav`.
@@ -52,15 +40,9 @@ def convert2wav(input_dir, output_dir):
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    playlist = m3u8.load(path.join(input_dir, "live.m3u8"))
-    timestamp = float(path.basename(input_dir))
-    segments = playlist.data["segments"]
-    old_name = path.join(input_dir, segments[0]["uri"])
-    convert_with_ffmpeg(old_name, create_readable_name(output_dir, timestamp))
-    for idx, segment in enumerate(segments[1:], start=1):
-        timestamp += segments[idx - 1]["duration"]
-        old_name = path.join(input_dir, segment["uri"])
-        convert_with_ffmpeg(old_name, create_readable_name(output_dir, timestamp))
+    for input_ts in sorted(glob.glob(path.join(input_dir, "*.ts"))):
+        uri = input_ts[input_ts.rfind("/")+1:]
+        convert_with_ffmpeg(input_ts, path.join(output_dir, uri))
 
 
 if __name__ == "__main__":

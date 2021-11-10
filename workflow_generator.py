@@ -57,8 +57,7 @@ class OrcasoundWorkflow():
     def create_pegasus_properties(self):
         self.props = Properties()
 
-        # props["pegasus.monitord.encoding"] = "json"                                                                    
-        #self.properties["pegasus.integrity.checking"] = "none"
+        self.props["pegasus.transfer.threads"] = "16"
         return
 
 
