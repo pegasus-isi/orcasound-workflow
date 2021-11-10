@@ -100,7 +100,8 @@ class OrcasoundWorkflow():
         orcasound_container = Container("orcasound_container",
             container_type = Container.SINGULARITY,
             image="docker://papajim/orcasound-processing:latest",
-            image_site="docker_hub"
+            image_site="docker_hub",
+            mounts=["{0}:{0}".format(os.path.join(self.wf_dir, "scratch"))]
         )
 
         # Add the orcasound processing
@@ -169,7 +170,7 @@ class OrcasoundWorkflow():
             self.rc.add_replica("AmazonS3", f, "s3://george@amazon/{}/{}".format(self.s3_bucket, f))
         
         # Add create_spectrogram.py
-        self.rc.add_replica("create_spectrogram.py", "create_spectrogram.py", os.path.join(self.wf_dir, "bin/create_spectrogram.py"))
+        self.rc.add_replica("local", "create_spectrogram.py", os.path.join(self.wf_dir, "bin/create_spectrogram.py"))
     
     # --- Create Workflow ----------------------------------------------------------
     def create_workflow(self):
@@ -191,7 +192,8 @@ class OrcasoundWorkflow():
                 
                 processing_job = (Job("orcasound_processing")
                                     .add_args("{0}/hls/{1} -o png/{0}/{1}".format(sensor, ts))
-                                    .add_inputs(spectrogram_py, *input_files, bypass_staging=True)
+                                    .add_inputs(spectrogram_py)
+                                    .add_inputs(*input_files, bypass_staging=True)
                                     .add_outputs(*output_files, stage_out=True, register_replica=True)
                                  )
                                 
