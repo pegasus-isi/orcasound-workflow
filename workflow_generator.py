@@ -87,7 +87,8 @@ class OrcasoundWorkflow():
                         .add_condor_profile(universe="vanilla")
                         .add_pegasus_profile(
                             style="condor",
-                            data_configuration="nonsharedfs"
+                            data_configuration="nonsharedfs",
+                            auxillary_local=True
                         )
                     )
 
@@ -106,10 +107,12 @@ class OrcasoundWorkflow():
         )
 
         # Add the orcasound processing
-        orcasound_processing = Transformation("orcasound_processing", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/orcasound_processing.py"), is_stageable=True, container=orcasound_container)
+        #orcasound_processing = Transformation("orcasound_processing", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/orcasound_processing.py"), is_stageable=True, container=orcasound_container)
+        convert2wav = Transformation("convert2wav", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2wav.py"), is_stageable=True, container=orcasound_container)
+        convert2spectrogram = Transformation("convert2spectrogram", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2spectrogram.py"), is_stageable=True, container=orcasound_container)
         
         self.tc.add_containers(orcasound_container)
-        self.tc.add_transformations(orcasound_processing)
+        self.tc.add_transformations(convert2wav, convert2spectrogram)
 
     
     # --- Fetch s3 catalog ---------------------------------------------------------
@@ -169,10 +172,8 @@ class OrcasoundWorkflow():
         # Add s3 files as deep lfns
         for f in self.s3_files["Key"]:
             self.rc.add_replica("AmazonS3", f, "s3://george@amazon/{}/{}".format(self.s3_bucket, f))
-        
-        # Add create_spectrogram.py
-        self.rc.add_replica("local", "create_spectrogram.py", os.path.join(self.wf_dir, "bin/create_spectrogram.py"))
-    
+     
+
     # --- Create Workflow ----------------------------------------------------------
     def create_workflow(self):
         self.wf = Workflow(self.wf_name, infer_dependencies=True)
@@ -189,22 +190,32 @@ class OrcasoundWorkflow():
                 sensor_ts_files_len = sensor_ts_files_len - 1
 
                 num_of_splits = -(-sensor_ts_files_len//self.max_files)
-
+                
+                counter = 0
                 for job_files in np.array_split(sensor_ts_files, num_of_splits):
                     input_files = job_files["Key"]
-                    output_files = []
+                    wav_files = []
+                    png_files = []
                     for f in job_files["Filename"]:
-                        output_files.append("png/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".png")))
+                        wav_files.append("wav/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".wav")))
+                        png_files.append("png/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".png")))
                 
-                    processing_job = (Job("orcasound_processing")
-                                        .add_args("{0}/hls/{1} -o png/{0}/{1}".format(sensor, ts))
-                                        .add_inputs(spectrogram_py)
+                    convert2wav_job = (Job("convert2wav", node_label="wav_{0}_{1}_{2}".format(sensor, ts, counter))
+                                        .add_args("-i {0}/hls/{1} -o wav/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*input_files, bypass_staging=True)
-                                        .add_outputs(*output_files, stage_out=True, register_replica=True)
+                                        .add_outputs(*wav_files, stage_out=True, register_replica=True)
+                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
+                                    )
+                    
+                    convert2spectrogram_job = (Job("convert2spectrogram", node_label="spectrogram_{0}_{1}_{2}".format(sensor, ts, counter))
+                                        .add_args("-i wav/{0}/{1} -o png/{0}/{1}".format(sensor, ts))
+                                        .add_inputs(*wav_files)
+                                        .add_outputs(*png_files, stage_out=True, register_replica=True)
+                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
                                 
                     # Share files to jobs
-                    self.wf.add_jobs(processing_job)
+                    self.wf.add_jobs(convert2wav_job, convert2spectrogram_job)
 
 
 if __name__ == '__main__':

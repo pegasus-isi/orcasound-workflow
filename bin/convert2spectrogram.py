@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import glob
 from os import path
 from pathlib import Path
 
@@ -80,22 +81,33 @@ def save_spectrogram(input_wav, plot_path=None, nfft=256):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Plots power spectral density spectrogram."
+    logging.basicConfig(
+        format="%(levelname)s:%(message)s", stream=sys.stdout, level=logging.INFO
     )
-    parser.add_argument("input", help="Path to the input .wav file.")
+    parser = argparse.ArgumentParser(
+        description="Creates spectrogram for each .wav file in the input directory."
+    )
+    parser.add_argument(
+        "-i",
+        "--input-dir",
+        default=".",
+        help="Path to the input directory with `.wav` files. Default is `.`",
+    )
     parser.add_argument(
         "-o",
-        "--output",
-        help="Path to the output spectrogram file. Default is `input` with .png extension.",
+        "--output-dir",
+        default="png",
+        help="Path to the output directory for spectrograms. Default is `png`.",
     )
     parser.add_argument(
         "-n",
         "--nfft",
         type=int,
-        help="The number of data points used in each block for the FFT. A power 2 is most efficient. Default is 256.",
         default=256,
+        help="The number of data points used in each block for the FFT. A power 2 is most efficient. Default is %(default)s.",
     )
     args = parser.parse_args()
 
-    save_spectrogram(args.input, args.output, args.nfft)
+    for input_wav in sorted(glob.glob(path.join(args.input_dir, "*.wav"))):
+        output_fname = create_spec_name(input_wav, args.output_dir)
+        save_spectrogram(input_wav, output_fname, args.nfft)
