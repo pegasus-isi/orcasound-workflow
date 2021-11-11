@@ -4,6 +4,7 @@ import sys
 import logging
 import tarfile
 import requests
+import numpy as np
 import pandas as pd
 from pathlib import Path
 from argparse import ArgumentParser
@@ -35,10 +36,11 @@ class OrcasoundWorkflow():
     s3_cache_xz_url = "https://workflow.isi.edu/Panorama/Data/Orcasound/streaming-orcasound-net.tar.xz"
     
     # --- Init ---------------------------------------------------------------------
-    def __init__(self, sensors, start_date, end_date, dagfile="workflow.yml"):
+    def __init__(self, sensors, start_date, end_date, max_files, dagfile="workflow.yml"):
         self.dagfile = dagfile
         self.wf_dir = str(Path(__file__).parent.resolve())
         self.sensors = sensors
+        self.max_files = max_files
         self.start_date = int(start_date.timestamp())
         self.end_date = int(end_date.timestamp())
 
@@ -180,41 +182,47 @@ class OrcasoundWorkflow():
         # Create a job for each Sensor and Timestamp
         for sensor in self.sensors:
             for ts in self.s3_files[self.s3_files["Sensor"] == sensor]["Timestamp"].unique():
-                job_files = self.s3_files[(self.s3_files["Sensor"] == sensor) & (self.s3_files["Timestamp"] == ts)]
-                input_files = job_files["Key"]
-                output_files = []
-                for f in job_files["Filename"]:
-                    if f.endswith(".m3u8"):
-                        continue
-                    else:
+                sensor_ts_files = self.s3_files[(self.s3_files["Sensor"] == sensor) & (self.s3_files["Timestamp"] == ts) & (self.s3_files["Filename"] != "live.m3u8")]
+                sensor_ts_files_len = len(sensor_ts_files.index)
+                # -2 if m3u8 in the list else -1
+                sensor_ts_files = sensor_ts_files[sensor_ts_files["Filename"] != "live{}.ts".format(sensor_ts_files_len-1)]
+                sensor_ts_files_len = sensor_ts_files_len - 1
+
+                num_of_splits = -(-sensor_ts_files_len//self.max_files)
+
+                for job_files in np.array_split(sensor_ts_files, num_of_splits):
+                    input_files = job_files["Key"]
+                    output_files = []
+                    for f in job_files["Filename"]:
                         output_files.append("png/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".png")))
                 
-                processing_job = (Job("orcasound_processing")
-                                    .add_args("{0}/hls/{1} -o png/{0}/{1}".format(sensor, ts))
-                                    .add_inputs(spectrogram_py)
-                                    .add_inputs(*input_files, bypass_staging=True)
-                                    .add_outputs(*output_files, stage_out=True, register_replica=True)
-                                 )
+                    processing_job = (Job("orcasound_processing")
+                                        .add_args("{0}/hls/{1} -o png/{0}/{1}".format(sensor, ts))
+                                        .add_inputs(spectrogram_py)
+                                        .add_inputs(*input_files, bypass_staging=True)
+                                        .add_outputs(*output_files, stage_out=True, register_replica=True)
+                                    )
                                 
-                # Share files to jobs
-                self.wf.add_jobs(processing_job)
+                    # Share files to jobs
+                    self.wf.add_jobs(processing_job)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Pegasus Diamond Workflow")
 
-    parser.add_argument("-s", "--skip_sites_catalog", action="store_true", help="Skip site catalog creation")
-    parser.add_argument("-e", "--execution_site_name", metavar="STR", type=str, default="condorpool", help="Execution site name (default: condorpool)")
+    parser.add_argument("-s", "--skip-sites-catalog", action="store_true", help="Skip site catalog creation")
+    parser.add_argument("-e", "--execution-site-name", metavar="STR", type=str, default="condorpool", help="Execution site name (default: condorpool)")
     parser.add_argument("-o", "--output", metavar="STR", type=str, default="workflow.yml", help="Output file (default: workflow.yml)")
+    parser.add_argument("-m", "--max-files", metavar="INT", type=int, default=100, help="Max files per job (default: 100)")
     parser.add_argument("--sensors", metavar="STR", type=str, choices=["rpi_bush_point", "rpi_port_townsend", "rpi_orcasound_lab"], required=True, nargs="+", help="Sensor source [rpi_bush_point, rpi_port_townsend, rpi_orcasound_lab]")
-    parser.add_argument("--start_date", metavar="STR", type=lambda s: datetime.strptime(s, '%Y-%m-%d'), required=True, help="Start date (example: '2021-08-10')")
-    parser.add_argument("--end_date", metavar="STR", type=lambda s: datetime.strptime(s, '%Y-%m-%d'), default=None, help="End date (default: Start date + 1 day)")
+    parser.add_argument("--start-date", metavar="STR", type=lambda s: datetime.strptime(s, '%Y-%m-%d'), required=True, help="Start date (example: '2021-08-10')")
+    parser.add_argument("--end-date", metavar="STR", type=lambda s: datetime.strptime(s, '%Y-%m-%d'), default=None, help="End date (default: Start date + 1 day)")
 
     args = parser.parse_args()
     if not args.end_date:
         args.end_date = args.start_date + timedelta(days=1)
     
-    workflow = OrcasoundWorkflow(sensors=args.sensors, start_date=args.start_date, end_date=args.end_date, dagfile=args.output)
+    workflow = OrcasoundWorkflow(sensors=args.sensors, start_date=args.start_date, end_date=args.end_date, max_files=args.max_files, dagfile=args.output)
     
     if not args.skip_sites_catalog:
         print("Creating execution sites...")
