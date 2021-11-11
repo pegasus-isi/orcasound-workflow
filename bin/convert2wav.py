@@ -37,7 +37,7 @@ def convert2wav(input_dir, output_dir):
 
     for input_ts in sorted(glob.glob(path.join(input_dir, "*.ts"))):
         uri = input_ts[input_ts.rfind("/")+1:]
-        convert_with_ffmpeg(input_ts, path.join(output_dir, uri))
+        convert_with_ffmpeg(input_ts, path.join(output_dir, uri).replace(".ts", ".wav"))
 
 
 if __name__ == "__main__":

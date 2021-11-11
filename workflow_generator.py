@@ -191,7 +191,7 @@ class OrcasoundWorkflow():
 
                 num_of_splits = -(-sensor_ts_files_len//self.max_files)
                 
-                counter = 0
+                counter = 1
                 for job_files in np.array_split(sensor_ts_files, num_of_splits):
                     input_files = job_files["Key"]
                     wav_files = []
@@ -200,14 +200,14 @@ class OrcasoundWorkflow():
                         wav_files.append("wav/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".wav")))
                         png_files.append("png/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".png")))
                 
-                    convert2wav_job = (Job("convert2wav", node_label="wav_{0}_{1}_{2}".format(sensor, ts, counter))
+                    convert2wav_job = (Job("convert2wav", _id="wav_{0}_{1}_{2}".format(sensor, ts, counter))
                                         .add_args("-i {0}/hls/{1} -o wav/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*input_files, bypass_staging=True)
                                         .add_outputs(*wav_files, stage_out=True, register_replica=True)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
                     
-                    convert2spectrogram_job = (Job("convert2spectrogram", node_label="spectrogram_{0}_{1}_{2}".format(sensor, ts, counter))
+                    convert2spectrogram_job = (Job("convert2spectrogram", _id="spectrogram_{0}_{1}_{2}".format(sensor, ts, counter))
                                         .add_args("-i wav/{0}/{1} -o png/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*wav_files)
                                         .add_outputs(*png_files, stage_out=True, register_replica=True)
@@ -224,7 +224,7 @@ if __name__ == '__main__':
     parser.add_argument("-s", "--skip-sites-catalog", action="store_true", help="Skip site catalog creation")
     parser.add_argument("-e", "--execution-site-name", metavar="STR", type=str, default="condorpool", help="Execution site name (default: condorpool)")
     parser.add_argument("-o", "--output", metavar="STR", type=str, default="workflow.yml", help="Output file (default: workflow.yml)")
-    parser.add_argument("-m", "--max-files", metavar="INT", type=int, default=100, help="Max files per job (default: 100)")
+    parser.add_argument("-m", "--max-files", metavar="INT", type=int, default=200, help="Max files per job (default: 200)")
     parser.add_argument("--sensors", metavar="STR", type=str, choices=["rpi_bush_point", "rpi_port_townsend", "rpi_orcasound_lab"], required=True, nargs="+", help="Sensor source [rpi_bush_point, rpi_port_townsend, rpi_orcasound_lab]")
     parser.add_argument("--start-date", metavar="STR", type=lambda s: datetime.strptime(s, '%Y-%m-%d'), required=True, help="Start date (example: '2021-08-10')")
     parser.add_argument("--end-date", metavar="STR", type=lambda s: datetime.strptime(s, '%Y-%m-%d'), default=None, help="End date (default: Start date + 1 day)")
