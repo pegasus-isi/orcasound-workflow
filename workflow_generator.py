@@ -187,7 +187,7 @@ class OrcasoundWorkflow():
                 sensor_ts_files_len = len(sensor_ts_files.index)
                 # -2 if m3u8 in the list else -1
                 sensor_ts_files = sensor_ts_files[sensor_ts_files["Filename"] != "live{}.ts".format(sensor_ts_files_len-1)]
-                sensor_ts_files_len = sensor_ts_files_len - 1
+                sensor_ts_files_len -= 1
 
                 num_of_splits = -(-sensor_ts_files_len//self.max_files)
                 
@@ -213,7 +213,10 @@ class OrcasoundWorkflow():
                                         .add_outputs(*png_files, stage_out=True, register_replica=True)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
-                                
+                    
+                    # Increase counter
+                    counter += 1
+
                     # Share files to jobs
                     self.wf.add_jobs(convert2wav_job, convert2spectrogram_job)
 
