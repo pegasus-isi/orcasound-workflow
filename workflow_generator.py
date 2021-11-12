@@ -200,14 +200,14 @@ class OrcasoundWorkflow():
                         wav_files.append("wav/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".wav")))
                         png_files.append("png/{0}/{1}/{2}".format(sensor, ts, f.replace(".ts", ".png")))
                 
-                    convert2wav_job = (Job("convert2wav", _id="{0}_{1}_{2}".format(sensor, ts, counter), node_label="wav_{0}_{1}_{2}".format(sensor, ts, counter))
+                    convert2wav_job = (Job("convert2wav", _id="wav_{0}_{1}_{2}".format(sensor, ts, counter), node_label="wav_{0}_{1}_{2}".format(sensor, ts, counter))
                                         .add_args("-i {0}/hls/{1} -o wav/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*input_files, bypass_staging=True)
                                         .add_outputs(*wav_files, stage_out=True, register_replica=True)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
                     
-                    convert2spectrogram_job = (Job("convert2spectrogram", _id="{0}_{1}_{2}".format(sensor, ts, counter), node_label="spectrogram_{0}_{1}_{2}".format(sensor, ts, counter))
+                    convert2spectrogram_job = (Job("convert2spectrogram", _id="png_{0}_{1}_{2}".format(sensor, ts, counter), node_label="spectrogram_{0}_{1}_{2}".format(sensor, ts, counter))
                                         .add_args("-i wav/{0}/{1} -o png/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*wav_files)
                                         .add_outputs(*png_files, stage_out=True, register_replica=True)
