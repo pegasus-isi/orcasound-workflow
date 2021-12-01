@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os, sys, json, glob
 import torch
 import numpy as np
@@ -24,14 +26,11 @@ Steps:
     - Write out a JSON file 
 
 """
-def write_json(result_json, output_path):
-    with open(output_path, 'w') as f:
-        json.dump(result_json, f)
 
 class OrcaDetectionModel():
-    def __init__(self, model_path, threshold=0.7, min_num_positive_calls_threshold=3, hop_s=2.45, rolling_avg=False):
+    def __init__(self, model_path, threshold=0.7, min_num_positive_calls_threshold=3, hop_s=2.45, rolling_avg=False, use_cuda=False):
         #i initialize model
-        self.model, _ = get_model_or_checkpoint(params.MODEL_NAME,model_path,use_cuda=False)
+        self.model, _ = get_model_or_checkpoint(params.MODEL_NAME, model_path, use_cuda)
         self.model.eval()
         self.mean = os.path.join(model_path, params.MEAN_FILE)
         self.invstd = os.path.join(model_path, params.INVSTD_FILE)
@@ -127,3 +126,45 @@ class OrcaDetectionModel():
         result_json = self.split_and_predict(wav_file_path)
         result_json = self.aggregate_predictions(result_json)
         return result_json
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        format="%(levelname)s:%(message)s", stream=sys.stdout, level=logging.INFO
+    )
+    parser = argparse.ArgumentParser(
+        description="Identifies wav files with Orca sounds."
+    )
+    parser.add_argument(
+        "-i",
+        "--input-dir",
+        default=".",
+        help="Path to the input directory with `.wav` files. Default is `.`",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="predictions.json",
+        help="Path to the output directory for spectrograms. Default is `predictions.json`.",
+    )
+    parser.add_argument(
+        "-c",
+        "--cuda",
+        action="store_true",
+        help="Enable CUDA.",
+    )
+    parser.add_argument(
+        "-m",
+        "--model",
+        default="model.pkl",
+        help="Path to the model that will be used for inference. Default is `model.pkl`.",
+    )
+
+    args = parser.parse_args()
+    
+    orca_model = OrcaDetectionModel(args.model, use_cuda=args.cuda)
+    result_json = orca_model.predict(args.input_dir)
+
+    with open(args.output, 'w') as f:
+        json.dump(result_json, f, indent=2)
+

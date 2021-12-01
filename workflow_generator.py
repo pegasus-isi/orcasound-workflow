@@ -110,6 +110,9 @@ class OrcasoundWorkflow():
         #orcasound_processing = Transformation("orcasound_processing", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/orcasound_processing.py"), is_stageable=True, container=orcasound_container)
         convert2wav = Transformation("convert2wav", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2wav.py"), is_stageable=True, container=orcasound_container)
         convert2spectrogram = Transformation("convert2spectrogram", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2spectrogram.py"), is_stageable=True, container=orcasound_container)
+        inference = Transformation("inference", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/inference.py"), is_stageable=True, container=orcasound_container)
+        merge = Transformation("merge", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/merge.sh"), is_stageable=True, container=orcasound_container)
+
         
         self.tc.add_containers(orcasound_container)
         self.tc.add_transformations(convert2wav, convert2spectrogram)
@@ -172,13 +175,20 @@ class OrcasoundWorkflow():
         # Add s3 files as deep lfns
         for f in self.s3_files["Key"]:
             self.rc.add_replica("AmazonS3", f, "s3://george@amazon/{}/{}".format(self.s3_bucket, f))
+
+        # Add inference dependencies
+        self.rc.add_replica("local", "model.py", os.path.join(self.wf_dir, "bin/model.py"))
+        self.rc.add_replica("local", "dataloader.py", os.path.join(self.wf_dir, "bin/dataloader.py"))
+        self.rc.add_replica("local", "params.py", os.path.join(self.wf_dir, "bin/params.py"))
      
 
     # --- Create Workflow ----------------------------------------------------------
     def create_workflow(self):
         self.wf = Workflow(self.wf_name, infer_dependencies=True)
         
-        spectrogram_py = File("create_spectrogram.py")
+        model_py = File("model.py")
+        dataloader_py = File("dataloader.py")
+        params_py = File("params.py")
 
         # Create a job for each Sensor and Timestamp
         for sensor in self.sensors:
@@ -203,7 +213,7 @@ class OrcasoundWorkflow():
                     convert2wav_job = (Job("convert2wav", _id="wav_{0}_{1}_{2}".format(sensor, ts, counter), node_label="wav_{0}_{1}_{2}".format(sensor, ts, counter))
                                         .add_args("-i {0}/hls/{1} -o wav/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*input_files, bypass_staging=True)
-                                        .add_outputs(*wav_files, stage_out=True, register_replica=True)
+                                        .add_outputs(*wav_files, stage_out=False, register_replica=False)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
                     
@@ -213,12 +223,19 @@ class OrcasoundWorkflow():
                                         .add_outputs(*png_files, stage_out=True, register_replica=True)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
+
+                    predictions = File("predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
+                    inference_job = (Job("inference", _id="predict_{0}_{1}_{2}".format(sensor, ts, counter), node_label="inference_{0}_{1}_{2}".format(sensor, ts, counter))
+                                        .add_args()
+                                        .add_inputs(model_py, dataloader_py, params_py, *wav_files)
+                                        .add_outputs(predictions, )
+                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                     
                     # Increase counter
                     counter += 1
 
                     # Share files to jobs
-                    self.wf.add_jobs(convert2wav_job, convert2spectrogram_job)
+                    self.wf.add_jobs(convert2wav_job, convert2spectrogram_job, inference_job)
 
 
 if __name__ == '__main__':
