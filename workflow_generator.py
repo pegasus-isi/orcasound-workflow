@@ -230,7 +230,8 @@ class OrcasoundWorkflow():
                                         .add_inputs(model_py, dataloader_py, params_py, *wav_files)
                                         .add_outputs(predictions, )
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
-                    
+                    )
+
                     # Increase counter
                     counter += 1
 

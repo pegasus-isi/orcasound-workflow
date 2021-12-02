@@ -4,19 +4,19 @@ import os, sys, json, glob
 import torch
 import numpy as np
 import pandas as pd
-import model.params as params
+import params 
 import argparse
 
-from model.model import get_model_or_checkpoint
+from model import get_model_or_checkpoint
 from scipy.io import wavfile
 from collections import defaultdict
-from model.dataloader import AudioFileWindower 
+from dataloader import AudioFileWindower 
 from pathlib import Path
 from tqdm import tqdm
 
 
 """
-Input: wav file 
+Input: wav folder
 Output: prediction
 
 Steps:
@@ -30,10 +30,12 @@ Steps:
 class OrcaDetectionModel():
     def __init__(self, model_path, threshold=0.7, min_num_positive_calls_threshold=3, hop_s=2.45, rolling_avg=False, use_cuda=False):
         #i initialize model
-        self.model, _ = get_model_or_checkpoint(params.MODEL_NAME, model_path, use_cuda)
+        self.model, _ = get_model_or_checkpoint(params.MODEL_NAME, model_path, use_cuda=use_cuda)
         self.model.eval()
-        self.mean = os.path.join(model_path, params.MEAN_FILE)
-        self.invstd = os.path.join(model_path, params.INVSTD_FILE)
+        #self.mean = os.path.join(model_path, params.MEAN_FILE)
+        #self.invstd = os.path.join(model_path, params.INVSTD_FILE)
+        self.mean = None
+        self.invstd = None
         self.threshold = threshold
         self.min_num_positive_calls_threshold = min_num_positive_calls_threshold
         self.hop_s = hop_s
@@ -85,6 +87,7 @@ class OrcaDetectionModel():
             duration_s=self.hop_s,
             confidence=result_json['local_confidences']
         ))
+
         if self.rolling_avg:
             rolling_scores = submission['confidence'].rolling(2).mean()
             rolling_scores[0] = submission['confidence'][0]
@@ -129,9 +132,6 @@ class OrcaDetectionModel():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(levelname)s:%(message)s", stream=sys.stdout, level=logging.INFO
-    )
     parser = argparse.ArgumentParser(
         description="Identifies wav files with Orca sounds."
     )
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         "-o",
         "--output",
         default="predictions.json",
-        help="Path to the output directory for spectrograms. Default is `predictions.json`.",
+        help="Path to the predictions file. Default is `predictions.json`.",
     )
     parser.add_argument(
         "-c",
@@ -163,8 +163,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     orca_model = OrcaDetectionModel(args.model, use_cuda=args.cuda)
-    result_json = orca_model.predict(args.input_dir)
+    results = {}
+    for input_wav in sorted(glob.glob(os.path.join(args.input_dir, "*.wav"))):
+        result_json = orca_model.predict(input_wav)
+        results[Path(input_wav).name] = {"local_predictions": result_json["local_predictions"], 
+        "local_confidences": result_json["local_confidences"],
+        "global_prediction": result_json["global_prediction"], 
+        "global_confidence": result_json["global_confidence"]}
 
     with open(args.output, 'w') as f:
-        json.dump(result_json, f, indent=2)
+        json.dump(results, f)
 

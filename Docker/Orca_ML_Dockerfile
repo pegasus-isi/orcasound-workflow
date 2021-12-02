@@ -1,0 +1,20 @@
+FROM pytorch/pytorch:1.8.1-cuda10.2-cudnn7-runtime
+
+RUN apt-get update && \
+    apt-get install -y git wget curl openssh-client build-essential ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir awscli \
+    matplotlib \
+    numpy \
+    scipy \
+    m3u8 \
+    pandas \
+    scikit-learn \
+    torch \
+    torchvision \
+    pytorchtools \
+    torch-summary \
+    librosa \
+    git+https://github.com/kkroening/ffmpeg-python
+
