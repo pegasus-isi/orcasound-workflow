@@ -267,7 +267,7 @@ class OrcasoundWorkflow():
                 merge_job_sensor = (Job("merge", _id="merge_{0}".format(sensor, ts), node_label="merge_{0}".format(sensor, ts))
                                         .add_args("-i {0}".format(" ".join([x.name for x in predictions_sensor_files])))
                                         .add_inputs(*predictions_sensor_files)
-                                        .add_output(merged_predictions)
+                                        .add_output(merged_predictions, stage_out=True, register_replica=False)
                                         .add_pegasus_profiles(label="{0}".format(sensor))
                                     )
 
@@ -279,7 +279,7 @@ class OrcasoundWorkflow():
             merge_job_all = (Job("merge", _id="merge_all".format(sensor, ts), node_label="merge_all".format(sensor, ts))
                                     .add_args("-i {0}".format(" ".join([x.name for x in predictions_files])))
                                     .add_inputs(*predictions_files)
-                                    .add_output(merged_predictions)
+                                    .add_output(merged_predictions, stage_out=True, register_replica=False)
                             )
 
             self.wf.add_jobs(merge_job_all)
