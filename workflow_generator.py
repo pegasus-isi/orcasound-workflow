@@ -120,8 +120,8 @@ class OrcasoundWorkflow():
         merge = Transformation("merge", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/merge.py"), is_stageable=True, container=orcasound_container)
 
         
-        self.tc.add_containers(orcasound_container)
-        self.tc.add_transformations(convert2wav, convert2spectrogram, inference)
+        self.tc.add_containers(orcasound_container, orcasound_ml_container)
+        self.tc.add_transformations(convert2wav, convert2spectrogram, inference, merge)
 
     
     # --- Fetch s3 catalog ---------------------------------------------------------
