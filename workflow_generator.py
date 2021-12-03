@@ -117,7 +117,7 @@ class OrcasoundWorkflow():
         convert2wav = Transformation("convert2wav", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2wav.py"), is_stageable=True, container=orcasound_container)
         convert2spectrogram = Transformation("convert2spectrogram", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2spectrogram.py"), is_stageable=True, container=orcasound_container)
         inference = Transformation("inference", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/inference.py"), is_stageable=True, container=orcasound_ml_container)
-        merge = Transformation("merge", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/merge.sh"), is_stageable=True, container=orcasound_container)
+        merge = Transformation("merge", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/merge.py"), is_stageable=True, container=orcasound_container)
 
         
         self.tc.add_containers(orcasound_container)
@@ -186,6 +186,7 @@ class OrcasoundWorkflow():
         self.rc.add_replica("local", "model.py", os.path.join(self.wf_dir, "bin/model.py"))
         self.rc.add_replica("local", "dataloader.py", os.path.join(self.wf_dir, "bin/dataloader.py"))
         self.rc.add_replica("local", "params.py", os.path.join(self.wf_dir, "bin/params.py"))
+        self.rc.add_replica("local", "model.pkl", os.path.join(self.wf_dir, "input/model.pkl"))
      
 
     # --- Create Workflow ----------------------------------------------------------
@@ -195,6 +196,7 @@ class OrcasoundWorkflow():
         model_py = File("model.py")
         dataloader_py = File("dataloader.py")
         params_py = File("params.py")
+        model_file = File("model.pkl")
 
         # Create a job for each Sensor and Timestamp
         predictions_files = []
@@ -236,8 +238,8 @@ class OrcasoundWorkflow():
                     predictions = File("predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
                     predictions_sensor_ts_files.append(predictions)
                     inference_job = (Job("inference", _id="predict_{0}_{1}_{2}".format(sensor, ts, counter), node_label="inference_{0}_{1}_{2}".format(sensor, ts, counter))
-                                        .add_args("-i wav/{0}/{1} -s {0} -t {1} -o predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
-                                        .add_inputs(model_py, dataloader_py, params_py, *wav_files)
+                                        .add_args("-i wav/{0}/{1} -s {0} -t {1} -m {3} -o predictions_{0}_{1}_{2}.json".format(sensor, ts, counter, model_file.lfn))
+                                        .add_inputs(model_file, model_py, dataloader_py, params_py, *wav_files)
                                         .add_outputs(predictions, stage_out=False, register_replica=False)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
