@@ -252,9 +252,9 @@ class OrcasoundWorkflow():
                 merged_predictions = File("predictions_{0}_{1}.json".format(sensor, ts))
                 predictions_sensor_files.append(merged_predictions)
                 merge_job_ts = (Job("merge", _id="merge_{0}_{1}".format(sensor, ts), node_label="merge_{0}_{1}".format(sensor, ts))
-                                    .add_args("-i {0}".format(" ".join([x.name for x in predictions_sensor_ts_files])))
+                                    .add_args("-i {0}".format(" ".join([x.lfn for x in predictions_sensor_ts_files])))
                                     .add_inputs(*predictions_sensor_ts_files)
-                                    .add_output(merged_predictions, stage_out=True, register_replica=False)
+                                    .add_outputs(merged_predictions, stage_out=True, register_replica=False)
                                     .add_pegasus_profiles(label="{0}_{1}".format(sensor, ts))
                                 )
 
@@ -265,9 +265,9 @@ class OrcasoundWorkflow():
                 merged_predictions = File("predictions_{0}.json".format(sensor))
                 predictions_files.append(merged_predictions)
                 merge_job_sensor = (Job("merge", _id="merge_{0}".format(sensor, ts), node_label="merge_{0}".format(sensor, ts))
-                                        .add_args("-i {0}".format(" ".join([x.name for x in predictions_sensor_files])))
+                                        .add_args("-i {0}".format(" ".join([x.lfn for x in predictions_sensor_files])))
                                         .add_inputs(*predictions_sensor_files)
-                                        .add_output(merged_predictions, stage_out=True, register_replica=False)
+                                        .add_outputs(merged_predictions, stage_out=True, register_replica=False)
                                         .add_pegasus_profiles(label="{0}".format(sensor))
                                     )
 
@@ -277,9 +277,9 @@ class OrcasoundWorkflow():
         if len(predictions_files) > 1:
             merged_predictions = File("predictions_all.json")
             merge_job_all = (Job("merge", _id="merge_all".format(sensor, ts), node_label="merge_all".format(sensor, ts))
-                                    .add_args("-i {0}".format(" ".join([x.name for x in predictions_files])))
+                                    .add_args("-i {0}".format(" ".join([x.lfn for x in predictions_files])))
                                     .add_inputs(*predictions_files)
-                                    .add_output(merged_predictions, stage_out=True, register_replica=False)
+                                    .add_outputs(merged_predictions, stage_out=True, register_replica=False)
                             )
 
             self.wf.add_jobs(merge_job_all)
