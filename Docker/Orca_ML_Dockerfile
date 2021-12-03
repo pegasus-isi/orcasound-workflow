@@ -17,4 +17,18 @@ RUN pip install --upgrade pip setuptools wheel && \
     torch-summary \
     librosa \
     git+https://github.com/kkroening/ffmpeg-python
+RUN mkdir -p /opt/ooi/bin && \
+    mkdir /opt/ooi/model && \
+    cd /opt/ooi/bin && \
+    wget https://raw.githubusercontent.com/papajim/orca-workflow/master/bin/convert2spectrogram.py && \
+    wget https://raw.githubusercontent.com/papajim/orca-workflow/master/bin/convert2wav.py && \
+    wget https://raw.githubusercontent.com/papajim/orca-workflow/master/bin/dataloader.py && \
+    wget https://raw.githubusercontent.com/papajim/orca-workflow/master/bin/inference.py && \
+    wget https://raw.githubusercontent.com/papajim/orca-workflow/master/bin/merge.py && \
+    wget https://raw.githubusercontent.com/papajim/orca-workflow/master/bin/model.py && \
+    wget https://raw.githubusercontent.com/papajim/orca-workflow/master/bin/params.py && \
+    chmod +x *.py && \
+    cd ../model && \
+    wget https://github.com/papajim/orca-workflow/raw/master/input/model.pkl
+
 

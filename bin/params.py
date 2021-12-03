@@ -6,7 +6,8 @@ Global parameters for detection classifier
 WINDOW_S = 2.45
 INFERENCE_CHUNK_S = 60
 
-SAMPLE_RATE = 20000
+#SAMPLE_RATE = 20000
+SAMPLE_RATE = 48000
 N_FFT = 2048
 HOP_S = 0.0256
 N_MELS = 64
