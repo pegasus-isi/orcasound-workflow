@@ -236,7 +236,7 @@ class OrcasoundWorkflow():
                     predictions = File("predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
                     predictions_sensor_ts_files.append(predictions)
                     inference_job = (Job("inference", _id="predict_{0}_{1}_{2}".format(sensor, ts, counter), node_label="inference_{0}_{1}_{2}".format(sensor, ts, counter))
-                                        .add_args("-i wav/{0}/{1} -o predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
+                                        .add_args("-i wav/{0}/{1} -s {0} -t {1} -o predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
                                         .add_inputs(model_py, dataloader_py, params_py, *wav_files)
                                         .add_outputs(predictions, stage_out=False, register_replica=False)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))

@@ -148,6 +148,18 @@ if __name__ == "__main__":
         help="Path to the predictions file. Default is `predictions.json`.",
     )
     parser.add_argument(
+        "-s",
+        "--sensor",
+        default="_",
+        help="Sensor name to be saved in predictions file.",
+    )
+    parser.add_argument(
+        "-t",
+        "--timestamp",
+        default="_",
+        help="Timestamp to be saved in predictions file.",
+    )
+    parser.add_argument(
         "-c",
         "--cuda",
         action="store_true",
@@ -171,6 +183,8 @@ if __name__ == "__main__":
         "global_prediction": result_json["global_prediction"], 
         "global_confidence": result_json["global_confidence"]}
 
+    final_json = {args.sensor: {args.timestamp: [results]}}
+
     with open(args.output, 'w') as f:
-        json.dump(results, f)
+        json.dump(final_json, f)
 
