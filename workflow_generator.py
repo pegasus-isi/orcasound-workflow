@@ -105,17 +105,23 @@ class OrcasoundWorkflow():
             image_site="docker_hub",
             mounts=["{0}:{0}".format(os.path.join(self.wf_dir, "scratch"))]
         )
+        
+        orcasound_ml_container = Container("orcasound_ml_container",
+            container_type = Container.SINGULARITY,
+            image="docker://papajim/orcasound-ml-processing:latest",
+            image_site="docker_hub",
+            mounts=["{0}:{0}".format(os.path.join(self.wf_dir, "scratch"))]
+        )
 
         # Add the orcasound processing
-        #orcasound_processing = Transformation("orcasound_processing", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/orcasound_processing.py"), is_stageable=True, container=orcasound_container)
         convert2wav = Transformation("convert2wav", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2wav.py"), is_stageable=True, container=orcasound_container)
         convert2spectrogram = Transformation("convert2spectrogram", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2spectrogram.py"), is_stageable=True, container=orcasound_container)
-        inference = Transformation("inference", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/inference.py"), is_stageable=True, container=orcasound_container)
+        inference = Transformation("inference", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/inference.py"), is_stageable=True, container=orcasound_ml_container)
         merge = Transformation("merge", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/merge.sh"), is_stageable=True, container=orcasound_container)
 
         
         self.tc.add_containers(orcasound_container)
-        self.tc.add_transformations(convert2wav, convert2spectrogram)
+        self.tc.add_transformations(convert2wav, convert2spectrogram, inference)
 
     
     # --- Fetch s3 catalog ---------------------------------------------------------
@@ -191,8 +197,11 @@ class OrcasoundWorkflow():
         params_py = File("params.py")
 
         # Create a job for each Sensor and Timestamp
+        predictions_files = []
         for sensor in self.sensors:
+            predictions_sensor_files = []
             for ts in self.s3_files[self.s3_files["Sensor"] == sensor]["Timestamp"].unique():
+                predictions_sensor_ts_files = []
                 sensor_ts_files = self.s3_files[(self.s3_files["Sensor"] == sensor) & (self.s3_files["Timestamp"] == ts) & (self.s3_files["Filename"] != "live.m3u8")]
                 sensor_ts_files_len = len(sensor_ts_files.index)
                 # -2 if m3u8 in the list else -1
@@ -220,23 +229,60 @@ class OrcasoundWorkflow():
                     convert2spectrogram_job = (Job("convert2spectrogram", _id="png_{0}_{1}_{2}".format(sensor, ts, counter), node_label="spectrogram_{0}_{1}_{2}".format(sensor, ts, counter))
                                         .add_args("-i wav/{0}/{1} -o png/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*wav_files)
-                                        .add_outputs(*png_files, stage_out=True, register_replica=True)
+                                        .add_outputs(*png_files, stage_out=True, register_replica=False)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
 
                     predictions = File("predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
+                    predictions_sensor_ts_files.append(predictions)
                     inference_job = (Job("inference", _id="predict_{0}_{1}_{2}".format(sensor, ts, counter), node_label="inference_{0}_{1}_{2}".format(sensor, ts, counter))
-                                        .add_args()
+                                        .add_args("-i wav/{0}/{1} -o predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
                                         .add_inputs(model_py, dataloader_py, params_py, *wav_files)
-                                        .add_outputs(predictions, )
+                                        .add_outputs(predictions, stage_out=False, register_replica=False)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
-                    )
+                                    )
 
                     # Increase counter
                     counter += 1
 
                     # Share files to jobs
                     self.wf.add_jobs(convert2wav_job, convert2spectrogram_job, inference_job)
+
+                #merge predictions for sensor timestamps
+                merged_predictions = File("predictions_{0}_{1}.json".format(sensor, ts))
+                predictions_sensor_files.append(merged_predictions)
+                merge_job_ts = (Job("merge", _id="merge_{0}_{1}".format(sensor, ts), node_label="merge_{0}_{1}".format(sensor, ts))
+                                    .add_args("-i {0}".format(" ".join([x.name for x in predictions_sensor_ts_files])))
+                                    .add_inputs(*predictions_sensor_ts_files)
+                                    .add_output(merged_predictions, stage_out=True, register_replica=False)
+                                    .add_pegasus_profiles(label="{0}_{1}".format(sensor, ts))
+                                )
+
+                self.wf.add_jobs(merge_job_ts)
+
+            #merge predictions for sensor if more than 1 files
+            if len(predictions_sensor_files) > 1:
+                merged_predictions = File("predictions_{0}.json".format(sensor))
+                predictions_files.append(merged_predictions)
+                merge_job_sensor = (Job("merge", _id="merge_{0}".format(sensor, ts), node_label="merge_{0}".format(sensor, ts))
+                                        .add_args("-i {0}".format(" ".join([x.name for x in predictions_sensor_files])))
+                                        .add_inputs(*predictions_sensor_files)
+                                        .add_output(merged_predictions)
+                                        .add_pegasus_profiles(label="{0}".format(sensor))
+                                    )
+
+                self.wf.add_jobs(merge_job_sensor)
+
+        #merge predictions for all sensors if more than 1 files
+        if len(predictions_files) > 1:
+            merged_predictions = File("predictions_all.json")
+            merge_job_all = (Job("merge", _id="merge_all".format(sensor, ts), node_label="merge_all".format(sensor, ts))
+                                    .add_args("-i {0}".format(" ".join([x.name for x in predictions_files])))
+                                    .add_inputs(*predictions_files)
+                                    .add_output(merged_predictions)
+                            )
+
+            self.wf.add_jobs(merge_job_all)
 
 
 if __name__ == '__main__':
