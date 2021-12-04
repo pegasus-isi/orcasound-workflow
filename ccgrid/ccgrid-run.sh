@@ -3,7 +3,7 @@
 ### EDGE ONLY RUNS ####################################### 
 python3 generate-sc.py --edge-only
 
-for i in {1..1}; do
+for i in {1..10}; do
     TOP_DIR=EDGE-RUN0$i
     WF_FILE=workflow.yml
     echo "CURRENT FILE: $FILE"
@@ -29,14 +29,15 @@ for i in {1..1}; do
         $WF_FILE
 
     start=$(date +%s)
-    
+    sleep 10
+
     while true; do
         if pegasus-status | grep -q "no matching jobs"; then
             break
         fi
         clear
         pegasus-status -l
-        sleep 1
+        sleep 10
     done
     end=$(date +%s)
 
@@ -46,7 +47,7 @@ done
 ### EDGE CLOUD RUNS ####################################### 
 python3 generate-sc.py
 
-for i in {1..1}; do
+for i in {1..10}; do
     TOP_DIR=EDGE-CLOUD-RUN0$i
     WF_FILE=workflow.yml
     echo "CURRENT FILE: $FILE"
@@ -72,14 +73,15 @@ for i in {1..1}; do
         $WF_FILE
 
     start=$(date +%s)
-    
+    sleep 10
+
     while true; do
         if pegasus-status | grep -q "no matching jobs"; then
             break
         fi
         clear
         pegasus-status -l
-        sleep 1
+        sleep 10
     done
     end=$(date +%s)
 
@@ -89,7 +91,7 @@ done
 ### CLOUD RUNS ####################################### 
 python3 generate-sc.py --cloud-only
 
-for i in {1..1}; do
+for i in {1..10}; do
     TOP_DIR=CLOUD-RUN0$i
     WF_FILE=workflow.yml
     echo "CURRENT FILE: $FILE"
@@ -115,14 +117,15 @@ for i in {1..1}; do
         $WF_FILE
 
     start=$(date +%s)
-    
+    sleep 10
+
     while true; do
         if pegasus-status | grep -q "no matching jobs"; then
             break
         fi
         clear
         pegasus-status -l
-        sleep 1
+        sleep 10
     done
     end=$(date +%s)
 
