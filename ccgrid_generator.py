@@ -53,7 +53,7 @@ class OrcasoundWorkflow():
         self.props.write()
         self.rc.write()
         self.tc.write()
-        self.wf.write()
+        self.wf.write(self.dagfile)
 
 
     # --- Configuration (Pegasus Properties) ---------------------------------------
@@ -125,8 +125,8 @@ class OrcasoundWorkflow():
         # Add the orcasound processing
         convert2wav = Transformation("convert2wav", site=exec_site_name, pfn="file:///opt/ooi/bin/convert2wav.py", is_stageable=False, container=orcasound_ml_container)
         convert2spectrogram = Transformation("convert2spectrogram", site=exec_site_name, pfn="file:///opt/ooi/bin/convert2spectrogram.py", is_stageable=False, container=orcasound_ml_container)
-        inference = Transformation("inference", site=exec_site_name, prf="file:///opt/ooi/bin/inference.py", is_stageable=False, container=orcasound_ml_container)
-        merge = Transformation("merge", site=exec_site_name, prf="file:///opt/ooi/bin/merge.py", is_stageable=False, container=orcasound_ml_container)
+        inference = Transformation("inference", site=exec_site_name, pfn="file:///opt/ooi/bin/inference.py", is_stageable=False, container=orcasound_ml_container)
+        merge = Transformation("merge", site=exec_site_name, pfn="file:///opt/ooi/bin/merge.py", is_stageable=False, container=orcasound_ml_container)
 
         
         self.tc.add_containers(orcasound_container, orcasound_ml_container)
