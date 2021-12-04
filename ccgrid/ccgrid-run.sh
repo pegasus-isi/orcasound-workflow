@@ -25,13 +25,10 @@ for i in {1..1}; do
         --staging-site condorpool=condorpool \
         --force \
         --cluster label \
+        --submit \
         $WF_FILE
 
     start=$(date +%s)
-    for submit_dir in ./$TOP_DIR/panorama/pegasus/casa-wind/*
-    do
-        pegasus-run $submit_dir
-    done
     
     while true; do
         if pegasus-status | grep -q "no matching jobs"; then
@@ -71,13 +68,10 @@ for i in {1..1}; do
         --staging-site condorpool=staging \
         --force \
         --cluster label \
+        --submit \
         $WF_FILE
 
     start=$(date +%s)
-    for submit_dir in ./$TOP_DIR/panorama/pegasus/casa-wind/*
-    do
-        pegasus-run $submit_dir
-    done
     
     while true; do
         if pegasus-status | grep -q "no matching jobs"; then
@@ -117,13 +111,10 @@ for i in {1..1}; do
         --staging-site condorpool=staging \
         --force \
         --cluster label \
+        --submit \
         $WF_FILE
 
     start=$(date +%s)
-    for submit_dir in ./$TOP_DIR/panorama/pegasus/casa-wind/*
-    do
-        pegasus-run $submit_dir
-    done
     
     while true; do
         if pegasus-status | grep -q "no matching jobs"; then

@@ -110,14 +110,14 @@ class OrcasoundWorkflow():
         
         orcasound_container = Container("orcasound_container",
             container_type = Container.SINGULARITY,
-            image="file:///usr/bin/orcasound-processing.sif",
+            image="file:///usr/bin/orcasound-processing_latest.sif",
             image_site="local",
             mounts=["/home/panorama/public_html:/home/panorama/public_html"]
         )
         
         orcasound_ml_container = Container("orcasound_ml_container",
             container_type = Container.SINGULARITY,
-            image="file:///usr/bin/orcasound-ml-processing.sif",
+            image="file:///usr/bin/orcasound-ml-processing_latest.sif",
             image_site="local",
             mounts=["/home/panorama/public_html:/home/panorama/public_html"]
         )
