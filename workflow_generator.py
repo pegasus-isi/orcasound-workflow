@@ -288,7 +288,7 @@ class OrcasoundWorkflow():
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser(description="Pegasus Diamond Workflow")
+    parser = ArgumentParser(description="Pegasus Orcasound Workflow")
 
     parser.add_argument("-s", "--skip-sites-catalog", action="store_true", help="Skip site catalog creation")
     parser.add_argument("-e", "--execution-site-name", metavar="STR", type=str, default="condorpool", help="Execution site name (default: condorpool)")
