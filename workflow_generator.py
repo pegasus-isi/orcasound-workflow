@@ -98,15 +98,13 @@ class OrcasoundWorkflow():
         orcasound_container = Container("orcasound_container",
             container_type = Container.SINGULARITY,
             image="docker://papajim/orcasound-processing:latest",
-            image_site="docker_hub",
-            mounts=["{0}:{0}".format(os.path.join(self.wf_dir, "scratch"))]
+            image_site="docker_hub"
         )
         
         orcasound_ml_container = Container("orcasound_ml_container",
             container_type = Container.SINGULARITY,
             image="docker://papajim/orcasound-ml-processing:latest",
-            image_site="docker_hub",
-            mounts=["{0}:{0}".format(os.path.join(self.wf_dir, "scratch"))]
+            image_site="docker_hub"
         )
 
         # Add the orcasound processing
@@ -210,7 +208,7 @@ class OrcasoundWorkflow():
                 num_of_splits = -(-sensor_ts_files_len//self.max_files)
 
                 mkdir_job = (Job("mkdir", _id="scratch_mkdir_{0}_{1}".format(sensor, ts), node_label="scratch_mkdir_{0}_{1}".format(sensor, ts))
-                                .add_args("-p {0}/png/{1}/{2} {0}/wav/{1}/{2}".format(self.shared_scratch_dir, sensor, ts))
+                                .add_args("-p ${0}/png/{1}/{2} ${0}/wav/{1}/{2}".format("_PEGASUS_INITIAL_DIR", sensor, ts))
                                 .add_profiles(Namespace.SELECTOR, key="execution.site", value="local")
                 )
                 self.wf.add_jobs(mkdir_job)
