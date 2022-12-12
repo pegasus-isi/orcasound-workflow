@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import os
 import sys
 import logging
@@ -25,6 +26,8 @@ class OrcasoundWorkflow():
 
     dagfile = None
     wf_dir = None
+    shared_scratch_dir = None
+    local_storage_dir = None
     wf_name = "orcasound"
     
     s3_cache = None
@@ -39,6 +42,8 @@ class OrcasoundWorkflow():
     def __init__(self, sensors, start_date, end_date, max_files, dagfile="workflow.yml"):
         self.dagfile = dagfile
         self.wf_dir = str(Path(__file__).parent.resolve())
+        self.shared_scratch_dir = os.path.join(self.wf_dir, "scratch")
+        self.local_storage_dir = os.path.join(self.wf_dir, "output")
         self.sensors = sensors
         self.max_files = max_files
         self.start_date = int(start_date.timestamp())
@@ -67,33 +72,24 @@ class OrcasoundWorkflow():
     def create_sites_catalog(self, exec_site_name="condorpool"):
         self.sc = SiteCatalog()
 
-        shared_scratch_dir = os.path.join(self.wf_dir, "scratch")
-        local_storage_dir = os.path.join(self.wf_dir, "output")
-
         local = (Site("local")
                     .add_directories(
-                        Directory(Directory.SHARED_SCRATCH, shared_scratch_dir)
-                            .add_file_servers(FileServer("file://" + shared_scratch_dir, Operation.ALL)),
-                        Directory(Directory.LOCAL_STORAGE, local_storage_dir)
-                            .add_file_servers(FileServer("file://" + local_storage_dir, Operation.ALL))
+                        Directory(Directory.SHARED_SCRATCH, self.shared_scratch_dir)
+                            .add_file_servers(FileServer("file://" + self.shared_scratch_dir, Operation.ALL)),
+                        Directory(Directory.LOCAL_STORAGE, self.local_storage_dir)
+                            .add_file_servers(FileServer("file://" + self.local_storage_dir, Operation.ALL))
                     )
                 )
 
         exec_site = (Site(exec_site_name)
-                        .add_directories(
-                            Directory(Directory.SHARED_SCRATCH, shared_scratch_dir)
-                                .add_file_servers(FileServer("file://" + shared_scratch_dir, Operation.ALL))
-                        )
                         .add_condor_profile(universe="vanilla")
                         .add_pegasus_profile(
-                            style="condor",
-                            data_configuration="nonsharedfs",
-                            auxillary_local=True
+                            style="condor"
                         )
                     )
 
+        
         self.sc.add_sites(local, exec_site)
-
 
     # --- Transformation Catalog (Executables and Containers) ----------------------
     def create_transformation_catalog(self, exec_site_name="condorpool"):
@@ -114,6 +110,7 @@ class OrcasoundWorkflow():
         )
 
         # Add the orcasound processing
+        mkdir = Transformation("mkdir", site="local", pfn="/bin/mkdir", is_stageable=False)
         convert2wav = Transformation("convert2wav", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2wav.py"), is_stageable=True, container=orcasound_container)
         convert2spectrogram = Transformation("convert2spectrogram", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/convert2spectrogram.py"), is_stageable=True, container=orcasound_container)
         inference = Transformation("inference", site=exec_site_name, pfn=os.path.join(self.wf_dir, "bin/inference.py"), is_stageable=True, container=orcasound_ml_container)
@@ -121,7 +118,7 @@ class OrcasoundWorkflow():
 
         
         self.tc.add_containers(orcasound_container, orcasound_ml_container)
-        self.tc.add_transformations(convert2wav, convert2spectrogram, inference, merge)
+        self.tc.add_transformations(convert2wav, convert2spectrogram, inference, merge, mkdir)
 
     
     # --- Fetch s3 catalog ---------------------------------------------------------
@@ -211,7 +208,13 @@ class OrcasoundWorkflow():
                 sensor_ts_files_len -= 1
 
                 num_of_splits = -(-sensor_ts_files_len//self.max_files)
-                
+
+                mkdir_job = (Job("mkdir", _id="scratch_mkdir_{0}_{1}".format(sensor, ts), node_label="scratch_mkdir_{0}_{1}".format(sensor, ts))
+                                .add_args("-p {0}/png/{1}/{2} {0}/wav/{1}/{2}".format(self.shared_scratch_dir, sensor, ts))
+                                .add_profiles(Namespace.SELECTOR, key="execution.site", value="local")
+                )
+                self.wf.add_jobs(mkdir_job)
+
                 counter = 1
                 for job_files in np.array_split(sensor_ts_files, num_of_splits):
                     input_files = job_files["Key"]
@@ -234,7 +237,7 @@ class OrcasoundWorkflow():
                                         .add_outputs(*png_files, stage_out=True, register_replica=False)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
-
+                    
                     predictions = File("predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
                     predictions_sensor_ts_files.append(predictions)
                     inference_job = (Job("inference", _id="predict_{0}_{1}_{2}".format(sensor, ts, counter), node_label="inference_{0}_{1}_{2}".format(sensor, ts, counter))
@@ -243,12 +246,14 @@ class OrcasoundWorkflow():
                                         .add_outputs(predictions, stage_out=False, register_replica=False)
                                         .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
                                     )
+                    
 
                     # Increase counter
                     counter += 1
 
                     # Share files to jobs
                     self.wf.add_jobs(convert2wav_job, convert2spectrogram_job, inference_job)
+                    self.wf.add_dependency(mkdir_job, children=[convert2wav_job, convert2spectrogram_job])
 
                 #merge predictions for sensor timestamps
                 merged_predictions = File("predictions_{0}_{1}.json".format(sensor, ts))
