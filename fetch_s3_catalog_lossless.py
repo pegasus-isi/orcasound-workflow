@@ -18,31 +18,35 @@ def fetch_s3_catalog(bucket_name):
                 item["Key"] = item["Key"][:-1]
 
             splitted = item["Key"].split("/")
-            if "test" in splitted:
-                if len(splitted) < 4:
-                    print(item)
-                    continue
+            #if "test" in splitted:
+            #    if len(splitted) < 4:
+            #        print(item)
+            #        continue
                     
-                item["Sensor"] = splitted[0]
-                item["Protocol"] = splitted[1]
-                temp_timestamp = splitted[3].split("_")
-                item["Timestamp"] = int(datetime.strptime(temp_timestamp[0]+"_"+temp_timestamp[1], "%Y-%m-%d_%H-%M-%S").timestamp())
-                item["Filename"] = splitted[3]
-                item["LastModified"] = int(item["LastModified"].timestamp())
-                item["ETag"] = item["ETag"].replace('"', '')
-            else:
-                if len(splitted) < 3:
-                    print(item)
-                    continue
-                
-                item["Sensor"] = splitted[0]
-                item["Protocol"] = splitted[1]
-                temp_timestamp = splitted[2].split("_")
-                item["Timestamp"] = int(datetime.strptime(temp_timestamp[0]+"_"+temp_timestamp[1], "%Y-%m-%d_%H-%M-%S").timestamp())
-                item["Filename"] = splitted[2]
-                item["LastModified"] = int(item["LastModified"].timestamp())
-                item["ETag"] = item["ETag"].replace('"', '')
+            #    item["Sensor"] = splitted[0]
+            #    item["Protocol"] = splitted[1]
+            #    temp_timestamp = splitted[3].split("_")
+            #    item["Timestamp"] = int(datetime.strptime(temp_timestamp[0]+"_"+temp_timestamp[1], "%Y-%m-%d_%H-%M-%S").timestamp())
+            #    item["Filename"] = splitted[3]
+            #    item["LastModified"] = int(item["LastModified"].timestamp())
+            #    item["ETag"] = item["ETag"].replace('"', '')
+            #else:
+            #if len(splitted) < 2:
+            #    print(item)
+            #    continue
             
+            try:
+                item["Sensor"] = splitted[0]
+                item["Protocol"] = splitted[1] if len(splitted) == 3 else splitted[-1].split(".")[-1]
+                temp_timestamp = splitted[-1].split("_")
+                item["Timestamp"] = int(datetime.strptime(temp_timestamp[0]+"_"+temp_timestamp[1], "%Y-%m-%d_%H-%M-%S").timestamp())
+                item["Filename"] = splitted[-1]
+                item["LastModified"] = int(item["LastModified"].timestamp())
+                item["ETag"] = item["ETag"].replace('"', '')
+            except Exception:
+                print(item)
+                continue
+
             s3_cache.append(item)
 
     s3_cache_df = pd.DataFrame(s3_cache)

@@ -14,15 +14,22 @@ def fetch_s3_catalog(bucket_name):
     for page in page_iterator:
         for item in page["Contents"]:
             splitted = item["Key"].split("/")
-            if len(splitted) < 4:
+            if len(splitted) < 4 or item["Size"] == 0:
                 print(item)
                 continue
-            item["Sensor"] = splitted[0]
-            item["Protocol"] = splitted[1]
-            item["Timestamp"] = splitted[2]
-            item["Filename"] = splitted[3]
-            item["LastModified"] = item["LastModified"].timestamp()
-            item["ETag"] = item["ETag"].replace('"', '')
+
+            try:
+                item["Sensor"] = splitted[0]
+                item["Protocol"] = splitted[1]
+                item["Timestamp"] = splitted[2]
+                item["Filename"] = splitted[3]
+                item["LastModified"] = item["LastModified"].timestamp()
+                item["ETag"] = item["ETag"].replace('"', '')
+            except Exception as e:
+                print(f"EXCEPTION: {e}")
+                print(f"EXCEPTION ON {item}")
+                continue
+
             s3_cache.append(item)
 
     s3_cache_df = pd.DataFrame(s3_cache)
