@@ -14,6 +14,7 @@ and the Orca Hello real-time notification system.
 ## Dependencies:
 - Pegasus v5.0+
 - HTCondor v10.2+
+- Python 3.6+, Numpy, Pandas, Requests
 - Docker or Singularity
 - Memory Requirement: 16 GB memory
 
