@@ -175,7 +175,8 @@ class OrcasoundWorkflow():
 
         # Add s3 files as deep lfns
         for f in self.s3_files["Key"]:
-            self.rc.add_replica("AmazonS3", f, "s3://george@amazon/{}/{}".format(self.s3_bucket, f))
+            #self.rc.add_replica("AmazonS3", f, "s3://george@amazon/{}/{}".format(self.s3_bucket, f))
+            self.rc.add_replica("HTTP", f, f"https://{self.s3_bucket}.s3.amazonaws.com/{f}")
 
         # Add inference dependencies
         self.rc.add_replica("local", "model.py", os.path.join(self.wf_dir, "bin/model.py"))
@@ -226,14 +227,14 @@ class OrcasoundWorkflow():
                                         .add_args("-i {0}/hls/{1} -o wav/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*input_files, bypass_staging=True)
                                         .add_outputs(*wav_files, stage_out=False, register_replica=False)
-                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
+                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter), memory=1024)
                                     )
                     
                     convert2spectrogram_job = (Job("convert2spectrogram", _id="png_{0}_{1}_{2}".format(sensor, ts, counter), node_label="spectrogram_{0}_{1}_{2}".format(sensor, ts, counter))
                                         .add_args("-i wav/{0}/{1} -o png/{0}/{1}".format(sensor, ts))
                                         .add_inputs(*wav_files)
                                         .add_outputs(*png_files, stage_out=True, register_replica=False)
-                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
+                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter), memory=1024)
                                     )
                     
                     predictions = File("predictions_{0}_{1}_{2}.json".format(sensor, ts, counter))
@@ -242,7 +243,7 @@ class OrcasoundWorkflow():
                                         .add_args("-i wav/{0}/{1} -s {0} -t {1} -m {3} -o predictions_{0}_{1}_{2}.json".format(sensor, ts, counter, model_file.lfn))
                                         .add_inputs(model_file, model_py, dataloader_py, params_py, *wav_files)
                                         .add_outputs(predictions, stage_out=False, register_replica=False)
-                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter))
+                                        .add_pegasus_profiles(label="{0}_{1}_{2}".format(sensor, ts, counter), memory=1024)
                                     )
                     
 
@@ -260,7 +261,7 @@ class OrcasoundWorkflow():
                                     .add_args("-i {0} -o {1}".format(" ".join([x.lfn for x in predictions_sensor_ts_files]), merged_predictions.lfn))
                                     .add_inputs(*predictions_sensor_ts_files)
                                     .add_outputs(merged_predictions, stage_out=True, register_replica=False)
-                                    .add_pegasus_profiles(label="{0}_{1}".format(sensor, ts))
+                                    .add_pegasus_profiles(label="{0}_{1}".format(sensor, ts), memory=1024)
                                 )
 
                 self.wf.add_jobs(merge_job_ts)
@@ -273,7 +274,7 @@ class OrcasoundWorkflow():
                                         .add_args("-i {0} -o {1}".format(" ".join([x.lfn for x in predictions_sensor_files]), merged_predictions.lfn))
                                         .add_inputs(*predictions_sensor_files)
                                         .add_outputs(merged_predictions, stage_out=True, register_replica=False)
-                                        .add_pegasus_profiles(label="{0}".format(sensor))
+                                        .add_pegasus_profiles(label="{0}".format(sensor), memory=1024)
                                     )
 
                 self.wf.add_jobs(merge_job_sensor)
