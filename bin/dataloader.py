@@ -88,7 +88,7 @@ class AudioFile:
                 )) # ok with defaults n_fft=2048
             # roughly trying out some params based on https://seaworld.org/animals/all-about/killer-whale/communication/
             mel_fbank = librosa.filters.mel(
-                self.sr,
+                sr=self.sr,
                 n_fft=params.N_FFT,
                 n_mels=params.N_MELS,
                 fmin=params.MEL_MIN_FREQ,
