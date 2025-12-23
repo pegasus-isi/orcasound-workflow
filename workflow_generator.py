@@ -33,7 +33,7 @@ class OrcasoundWorkflow:
 
     s3_cache = None
     s3_files = None
-    s3_bucket = "streaming-orcasound-net"
+    s3_bucket = "audio-orcasound-net"
     s3_cache_location = ".s3_cache"
     s3_cache_file = ".s3_cache/streaming-orcasound-net.csv"
     s3_cache_xz = "streaming-orcasound-net.tar.xz"
